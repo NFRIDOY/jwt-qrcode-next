@@ -2,17 +2,13 @@
 
 import { useState, type FormEvent } from 'react';
 import './App.css';
-import { config } from '@/config';
 import { generateQR } from './qrcode';
-import { verifyJwt } from '@/utils/jwt';
 
 function QRCodeContainer() {
   const [qrCode, setQrCode] = useState("");
   const [token, setToken] = useState("");
   const [isValid, setIsValid] = useState(false);
-
-  console.log("qr: ", qrCode)
-  console.log("jwt: ", config.jwt_secret)
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -20,20 +16,38 @@ function QRCodeContainer() {
       return;
     }
 
+    setIsVerifying(true);
     try {
-      const valid = await verifyJwt(token);
-      if (!valid) {
+      // Verify JWT on the server side
+      const response = await fetch('/api/verify-jwt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await response.json();
+
+      if (!data.valid) {
+        setIsValid(false);
         setQrCode(""); // Clear QR if invalid
+        setIsVerifying(false);
         return;
       }
+
       console.log("valid")
       setIsValid(true);
 
+      // Generate QR code with the token
       const result = await generateQR(token);
       setQrCode(result ?? "");
-      setIsValid(true)
     } catch (error) {
       console.error("Failed to generate QR code:", error);
+      setIsValid(false);
+      setQrCode("");
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -63,7 +77,9 @@ function QRCodeContainer() {
             className="input"
             placeholder="Token"
           />
-          <button type="submit" className="btn btn-primary">Generate QR Code</button>
+          <button type="submit" className="btn btn-primary" disabled={isVerifying}>
+            {isVerifying ? 'Verifying...' : 'Generate QR Code'}
+          </button>
         </fieldset>
       </form>
       {qrCode ? (
