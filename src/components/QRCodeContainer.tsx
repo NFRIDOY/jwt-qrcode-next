@@ -16,7 +16,6 @@ function QRCodeContainer() {
       return;
     }
 
-    setIsVerifying(true);
     try {
       // Verify JWT on the server side
       const response = await fetch('/api/verify-jwt', {
